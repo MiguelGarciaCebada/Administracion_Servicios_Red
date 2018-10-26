@@ -1,1 +1,1 @@
-{"agents": [{"version": "v2c", "hostname": "localhost", "idAgent": "local", "comunity": "comunidadASR", "port": 161}, {"comunity": "comunidad", "hostname": "192.168.1.72", "idAgent": "win", "version": "v2c", "port": 161}]}
+{"agents": [{"hddReady": 5500000, "ramGo": 600000000, "ramReady": 800000000, "comunity": "comunidadEquipo2_grupo4CM3", "hddGo": 7000000, "port": 161, "cpuReady": 20, "cpuSet": 60, "hostname": "localhost", "cpuGo": 90, "version": "v2c", "hddSet": 6000000, "time": 1540550423, "idAgent": "local", "ramSet": 700000000}]}

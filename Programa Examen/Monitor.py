@@ -1,42 +1,49 @@
 from Procesamiento import Ejecutar
+from Procesamiento import prediction
+from Procesamiento import graph
+from LineaBase import EjecutarLb
 import os, time
 import threading
 from pysnmp.hlapi import *
+from getSNMP import consultaSNMP
 
 class Monitor(threading.Thread):
-    def __init__(self, agent):
-        super(Monitor, self).__init__()
-        self.agent = agent
-        self.stopRequest = threading.Event()
 
-    def run(self):
-        while not self.stopRequest.isSet():
-	   	Ejecutar( self.agent['comunity'] , self.agent['hostname'] , self.agent['idAgent'] , self.agent['time'] )        
-		#self.getAgentInfo()
+	def __init__(self, agent):
+		super(Monitor, self).__init__()
+		self.agent = agent
+		self.ramRsg = (agent['ramReady'], agent['ramSet'], agent['ramGo'])
+		self.cpuRsg = (agent['cpuReady'], agent['cpuSet'], agent['cpuGo'])
+		self.hddRsg = (agent['hddReady'], agent['hddSet'], agent['hddGo'])
+		self.ramOverflow = False
+		self.cpuOverflow = []
+		self.hddOverflow = False
+		self.stopRequest = threading.Event()
 
-    def join(self, timeout = None):
-        self.stopRequest.set()
-        super(Monitor, self).join(timeout)
 
-    def getIdAgent(self):
-        return self.idAgent
+    	def run(self):
+        	while not self.stopRequest.isSet():     
+			try:
+				#Graficas
+                		Ejecutar( self.agent['comunity'] , self.agent['hostname'] , self.agent['port'] , self.agent['idAgent'] , self.agent['time'] )    
+                		EjecutarLb( self , self.agent['comunity'] , self.agent['hostname'] , self.agent['port'] , self.agent['idAgent'] , self.agent['time'] ) 
 
-    def getAgentInfo(self):
-        errorIndication, errorStatus, errorIndex, varBinds = next(
-            getCmd(SnmpEngine(),
-                   CommunityData(self.agent['comunity'], mpModel=0),
-                   UdpTransportTarget((self.agent['hostname'], self.agent['port'])),
-                   ContextData(),
-                   ObjectType(ObjectIdentity('1.3.6.1.2.1.1.3.0')))
-        )
+				#HW
+				prediction( self.agent['comunity'] , self.agent['hostname'] , self.agent['port'] , self.agent['idAgent'] )
+				graph( self.agent['idAgent'] )
 
-        if errorIndication:
-            print(errorIndication)
-        elif errorStatus:
-            print('%s at %s' % (errorStatus.prettyPrint(),
-                                errorIndex and varBinds[int(errorIndex) - 1][0] or '?'))
-        else:
-            for varBind in varBinds:
-                print(' = '.join([x.prettyPrint() for x in varBind]))
+				time.sleep(1)
+  
+            		except Exception as e:
+                		print(e.message)
+                		time.sleep(2)
+				continue
 
-	time.sleep(2)
+
+    	def join(self, timeout = None):
+        	self.stopRequest.set()
+        	#super(Monitor, self).join(timeout)
+
+
+   	def getAgentInfo(self, oid):
+		return consultaSNMP(self.agent['comunity'], self.agent['hostname'], self.agent['port'], oid)

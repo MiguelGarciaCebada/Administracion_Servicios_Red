@@ -2,9 +2,14 @@ import json
 import threading, time
 import os.path
 from Procesamiento import crearBases
+from Procesamiento import crearBaseHW
+from Procesamiento import Ejecutar
 from pysnmp.hlapi import *
 from Monitor import Monitor
 from getSNMP import consultaSNMP
+from LineaBase import crearBasesLb
+from MinimoCuadrado import EjecutarMC
+
 
 class MonitorManager():
 	def __init__(self):
@@ -20,7 +25,9 @@ class MonitorManager():
 				self.pool.update({agent['idAgent']: t})
 				t.start()
 
+
 	def consulta( self , idAgent ):
+		encontrado = False
 		for agent in self.data['agents']:
 			if idAgent==agent['idAgent']:
 				print("Informacion del agentes")
@@ -32,8 +39,40 @@ class MonitorManager():
 				print( "Ubicacion fisica: " + consultaSNMP( agent['comunity'] , agent['hostname'] ,'1.3.6.1.2.1.1.6.0') )
 				print( "Contacto admin: " + consultaSNMP( agent['comunity'] , agent['hostname'] ,'1.3.6.1.2.1.1.4.0') )
 				print
+				encontrado = True
+		return encontrado
 
-	def addAgent(self, idAgent, hostname, version, port, comunity):
+
+	def showAll(self):
+		print("Numero de agentes: " + str(len(self.pool)))
+
+		for t in self.pool.values():
+			try:
+				numInts = int(t.getAgentInfo('1.3.6.1.2.1.2.1.0'))
+				print(" * "  + t.agent['idAgent'] + " : " + str(numInts) + " Interfaces de Red")
+				for i in range(1, numInts + 1):
+					print("\t - Interfaz " + str(i) + " (" + self.getStatus(int(t.getAgentInfo('1.3.6.1.2.1.2.2.1.8.' + str(i)))) + ")")
+			except:
+				print(" * "  + t.agent['idAgent'] + " : Sin acceso a ifNumber.")
+
+
+
+	def getStatus(self, status):
+		if status == 1:
+			return "up"
+		elif status == 2:
+			return "down"
+		else:
+			return "testing"
+
+
+	def addAgent(
+		self, idAgent, hostname, version, port, comunity,
+		ramReady, ramSet, ramGo,
+		cpuReady, cpuSet, cpuGo,
+		hddReady, hddSet, hddGo
+	):		
+		
 		if idAgent in self.pool:
 			return False
 
@@ -45,7 +84,16 @@ class MonitorManager():
 		    'version': version,
 		    'port': port,
 		    'comunity': comunity,
-		    'time': tiempo_actual	
+		    'time': tiempo_actual,	
+		    'ramReady': ramReady,
+		    'ramSet': ramSet,
+		    'ramGo': ramGo,
+		    'cpuReady': cpuReady,
+		    'cpuSet': cpuSet,
+		    'cpuGo': cpuGo,
+		    'hddReady': hddReady,
+		    'hddSet': hddSet,
+		    'hddGo': hddGo
 		}
 
 		t = Monitor(newAgent)
@@ -56,7 +104,9 @@ class MonitorManager():
 		with open('agents.json', 'w') as f:
 		    json.dump(self.data, f)
 
-		crearBases( idAgent )		
+		crearBases( idAgent )	
+		crearBaseHW( idAgent )	
+		crearBasesLb( comunity, hostname, port, idAgent ) 	
 
 		return True
 
@@ -71,3 +121,8 @@ class MonitorManager():
 			with open('agents.json', 'w') as f:
 			    json.dump(self.data, f)
 			return True
+
+
+
+	def minimosCuadrados(self, name, varName, initialTime, finalTime, umbral):
+		EjecutarMC(name, varName, initialTime, finalTime, umbral)
